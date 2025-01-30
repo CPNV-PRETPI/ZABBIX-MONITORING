@@ -1,0 +1,58 @@
+# Author: Zabbix
+# Comments: Yelyzaveta Kovsha
+# Date: 29.01.2025
+# Description: list of commands for Zabbix server and agent installation
+
+# become a root user
+sudo -s
+
+# download Zabbix repository
+wget https://repo.zabbix.com/zabbix/7.2/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.2+ubuntu24.04_all.deb
+dpkg -i zabbix-release_latest_7.2+ubuntu24.04_all.deb
+apt update
+
+# install Zabbix server, frontend, agent and configurations
+apt install zabbix-server-mysql zabbix-frontend-php zabbix-apache-conf zabbix-sql-scripts zabbix-agent -y
+
+# create an initial database for Zabbix
+mysql -uroot -p
+# your password here
+# -----
+create database zabbix character set utf8mb4 collate utf8mb4_bin;
+
+# create a user zabbix on localhost and choose a password
+create user zabbix@localhost identified by 'your_password';
+
+# grant all permissions
+grant all privileges on zabbix.* to zabbix@localhost;
+
+# this command will cause a warning since it's deprecated and will be removed in a future release. 
+# to verify : SHOW WARNINGS
+set global log_bin_trust_function_creators = 1;
+quit;
+
+# import initial schema and data
+zcat /usr/share/zabbix/sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uzabbix -p zabbix
+# your password here 
+# -----
+
+# disable log_bin_trust_function_creators option after importing database schema
+mysql -uroot -p
+# your password here
+# -----
+
+# this command will again cause a warning for the same reason as earlier
+set global log_bin_trust_function_creators = 0;
+quit;
+
+# edit the Zabbix server configuration file
+nano /etc/zabbix/zabbix_server.conf
+# modify DBPassword=*your zabbix user database password*
+
+# restart Zabbix server, agent and apache2
+systemctl restart zabbix-server zabbix-agent apache2
+
+# enable at start Zabbix server, agent and apache2
+systemctl enable zabbix-server zabbix-agent apache2
+
+# Source: https://www.zabbix.com/download?zabbix=7.2&os_distribution=ubuntu&os_version=24.04&components=server_frontend_agent&db=mysql&ws=apache
